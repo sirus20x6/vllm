@@ -480,6 +480,26 @@ class MambaModelConfig(VerifyAndUpdateConfig):
                 cache_config.mamba_block_size = model_config.max_model_len
 
 
+class RWKV7ForCausalLMConfig(MambaModelConfig):
+    @classmethod
+    def verify_and_update_config(cls, vllm_config: "VllmConfig") -> None:
+        super().verify_and_update_config(vllm_config)
+        speculative_config = vllm_config.speculative_config
+        cache_config = vllm_config.cache_config
+        if (
+            speculative_config is not None
+            and speculative_config.num_speculative_tokens > 0
+            and cache_config.enable_prefix_caching
+            and cache_config.mamba_cache_mode == "all"
+        ):
+            cache_config.mamba_cache_mode = "align"
+            logger.warning(
+                "Forcing mamba_cache_mode='align' for RWKV-7 because "
+                "speculative decoding requires per-token state slots, which "
+                "the 'all' mode (block-aligned) cannot provide."
+            )
+
+
 class NemotronHForCausalLMConfig(VerifyAndUpdateConfig):
     @staticmethod
     def verify_and_update_config(vllm_config: "VllmConfig") -> None:
@@ -735,7 +755,7 @@ MODELS_CONFIG_MAP: dict[str, type[VerifyAndUpdateConfig]] = {
     "LlamaNemotronVLModel": LlamaNemotronVLConfig,
     "Mamba2ForCausalLM": MambaModelConfig,
     "MambaForCausalLM": MambaModelConfig,
-    "RWKV7ForCausalLM": MambaModelConfig,
+    "RWKV7ForCausalLM": RWKV7ForCausalLMConfig,
     "NemotronHForCausalLM": NemotronHForCausalLMConfig,
     "NemotronHPuzzleForCausalLM": NemotronHForCausalLMConfig,
     "NemotronH_Nano_VL_V2": NemotronHNanoVLV2Config,

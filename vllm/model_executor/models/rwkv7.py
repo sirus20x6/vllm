@@ -498,14 +498,12 @@ class RWKV7ForCausalLM(
         assert vllm_config.parallel_config.pipeline_parallel_size == 1, (
             "RWKV-7 does not yet support pipeline parallelism"
         )
-        # Speculative decoding is wired up at the kernel and mixer level
-        # but cross-round state alignment is not yet correct in production
-        # (subtle token-duplication on repetitive prompts, kv-cache allocator
-        # asserts on multi-request workloads). Keep this gate in place until
-        # those are resolved.
-        assert vllm_config.speculative_config is None, (
-            "RWKV-7 does not yet support speculative decoding"
-        )
+        if vllm_config.speculative_config is not None:
+            method = vllm_config.speculative_config.method
+            assert method == "ngram", (
+                f"RWKV-7 supports only ngram speculative decoding for now, "
+                f"got method='{method}'"
+            )
 
         self.config = config
         self.vllm_config = vllm_config
